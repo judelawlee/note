@@ -582,7 +582,7 @@ javaBean：
  * @ConfigurationProperties：告诉SpringBoot将本类中的所有属性和配置文件中相关的配置进行绑定；
  *      prefix = "person"：配置文件中哪个下面的所有属性进行一一映射
  *
- * 只有这个组件是容器中的组件，才能容器提供的@ConfigurationProperties功能；
+ * 只有这个组件是容器中的组件(即添加了@Component注解标记为容器中的容器)，才能容器提供的@ConfigurationProperties功能；
  *
  */
 @Component
@@ -845,6 +845,8 @@ spring:
 
 springboot 启动会扫描以下位置的application.properties或者application.yml文件作为Spring boot的默认配置文件
 
+（这里的file:指的是当前项目的根目录下面，classpath: 指的是resources）
+
 –file:./config/
 
 –file:./
@@ -857,7 +859,7 @@ springboot 启动会扫描以下位置的application.properties或者application
 
 SpringBoot会从这四个位置全部加载主配置文件；**互补配置**；
 
-
+![1582797431988](C:\Users\jtbjb2019052\AppData\Roaming\Typora\typora-user-images\1582797431988.png)
 
 ==我们还可以通过spring.config.location来改变默认的配置文件位置==
 
@@ -868,6 +870,8 @@ java -jar spring-boot-02-config-02-0.0.1-SNAPSHOT.jar --spring.config.location=G
 ## 7、外部配置加载顺序
 
 **==SpringBoot也可以从以下位置加载配置； 优先级从高到低；高优先级的配置覆盖低优先级的配置，所有的配置会形成互补配置==**
+
+【ck】:共11中外部配置，加粗部分为重要配置。
 
 **1.命令行参数**
 
@@ -905,7 +909,7 @@ java -jar spring-boot-02-config-02-0.0.1-SNAPSHOT.jar --server.port=8087  --serv
 
 **9.jar包内部的application.properties或application.yml(不带spring.profile)配置文件**
 
-
+![1582797989757](C:\Users\jtbjb2019052\AppData\Roaming\Typora\typora-user-images\1582797989757.png)
 
 10.@Configuration注解类上的@PropertySource
 
@@ -927,11 +931,47 @@ java -jar spring-boot-02-config-02-0.0.1-SNAPSHOT.jar --server.port=8087  --serv
 
 **1）、SpringBoot启动的时候加载主配置类，开启了自动配置功能** ==@EnableAutoConfiguration==
 
+```
+@SpringBootApplication
+//SpringBootApplication 来标注一个主程序，说明是一个Spring Boot应用。
+public class HelloWorldMainApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(HelloWorldMainApplication.class, args);
+    }
+}
+
+[ck]：@EnableAutoConfiguration 包含在@SpringBootApplication中。
+```
+
 **2）、@EnableAutoConfiguration 作用：**
 
- -  利用EnableAutoConfigurationImportSelector给容器中导入一些组件？
+ - 利用EnableAutoConfigurationImportSelector给容器中导入一些组件？
+
+   ```
+   @Target({ElementType.TYPE})
+   @Retention(RetentionPolicy.RUNTIME)
+   @Documented
+   @Inherited
+   @AutoConfigurationPackage
+   @Import({AutoConfigurationImportSelector.class})
+   public @interface EnableAutoConfiguration {
+       String ENABLED_OVERRIDE_PROPERTY = "spring.boot.enableautoconfiguration";
+       Class<?>[] exclude() default {};
+       String[] excludeName() default {};
+   }
+   
+   [ck]：@Import({AutoConfigurationImportSelector.class}) 就是自动配置的选择器
+   ```
+
+   
 
 - 可以查看selectImports()方法的内容；
+
+  ```
+  【ck】:该方法 在 spring-boot-autoconfigure-2.0.2.RELEASE.jar!\org\springframework\boot\autoconfigure\AutoConfigurationImportSelector.class 中
+  ```
+
+  
 
 - List<String> configurations = getCandidateConfigurations(annotationMetadata,      attributes);获取候选的配置
 
@@ -943,7 +983,7 @@ java -jar spring-boot-02-config-02-0.0.1-SNAPSHOT.jar --server.port=8087  --serv
 
     ```
 
-    ​
+    
 
 **==将 类路径下  META-INF/spring.factories 里面配置的所有EnableAutoConfiguration的值加入到了容器中；==**
 
@@ -1063,7 +1103,7 @@ org.springframework.boot.autoconfigure.webservices.WebServicesAutoConfiguration
 @ConditionalOnClass(CharacterEncodingFilter.class)  //判断当前项目有没有这个类CharacterEncodingFilter；SpringMVC中进行乱码解决的过滤器；
 
 @ConditionalOnProperty(prefix = "spring.http.encoding", value = "enabled", matchIfMissing = true)  //判断配置文件中是否存在某个配置  spring.http.encoding.enabled；如果不存在，判断也是成立的
-//即使我们配置文件中不配置pring.http.encoding.enabled=true，也是默认生效的；
+//即使我们配置文件中不配置spring.http.encoding.enabled=true，也是默认生效的；
 public class HttpEncodingAutoConfiguration {
   
   	//他已经和SpringBoot的配置文件映射了
@@ -1088,10 +1128,6 @@ public class HttpEncodingAutoConfiguration {
 根据当前不同的条件判断，决定这个配置类是否生效？
 
 一但这个配置类生效；这个配置类就会给容器中添加各种组件；这些组件的属性是从对应的properties类中获取的，这些类里面的每一个属性又是和配置文件绑定的；
-
-
-
-
 
 
 
@@ -1124,7 +1160,7 @@ xxxxAutoConfigurartion：自动配置类；
 
 给容器中添加组件
 
-xxxxProperties:封装配置文件中相关属性；
+xxxx.properties(或者***.yml):封装配置文件中相关属性；
 
 
 
@@ -1134,7 +1170,7 @@ xxxxProperties:封装配置文件中相关属性；
 
 #### 1、@Conditional派生注解（Spring注解版原生的@Conditional作用）
 
-作用：必须是@Conditional指定的条件成立，才给容器中添加组件，配置配里面的所有内容才生效；
+作用：必须是@Conditional指定的条件成立，才给容器中添加组件，配置类里面的所有内容才生效；
 
 | @Conditional扩展注解                | 作用（判断是否满足当前指定条件）               |
 | ------------------------------- | ------------------------------ |
@@ -1157,7 +1193,10 @@ xxxxProperties:封装配置文件中相关属性；
 
 **==我们可以通过启用  debug=true属性；来让控制台打印自动配置报告==**，这样我们就可以很方便的知道哪些自动配置类生效；
 
+![1583115704253](C:\Users\jtbjb2019052\AppData\Roaming\Typora\typora-user-images\1583115704253.png)
+
 ```java
+【ck】:以下为控制台的打印内容：
 =========================
 AUTO-CONFIGURATION REPORT
 =========================
@@ -1198,15 +1237,21 @@ Negative matches:（没有启动，没有匹配成功的自动配置类）
 
 ​		2、框架来记录系统的一些运行时信息；日志框架 ；  zhanglogging.jar；
 
-​		3、高大上的几个功能？异步模式？自动归档？xxxx？  zhanglogging-good.jar？
+​		3、高大上的几个功能？
+
+​			比如异步模式？自动归档？xxxx？  zhanglogging-good.jar？
 
 ​		4、将以前框架卸下来？换上新的框架，重新修改之前相关的API；zhanglogging-prefect.jar；
 
-​		5、JDBC---数据库驱动；
+​		
 
-​			写了一个统一的接口层；日志门面（日志的一个抽象层）；logging-abstract.jar；
+```
+技术灵感：JDBC---数据库驱动；
 
-​			给项目中导入具体的日志实现就行了；我们之前的日志框架都是实现的抽象层；
+写了一个统一的接口层；日志门面（日志的一个抽象层）；logging-abstract.jar；
+
+给项目中导入具体的日志实现就行了；我们之前的日志框架都是实现的抽象层；
+```
 
 
 
@@ -1223,6 +1268,10 @@ JUL、JCL、Jboss-logging、logback、log4j、log4j2、slf4j....
 日志门面：  SLF4J；
 
 日志实现：Logback；
+
+```
+JCL：apache 自带的log,但已经在2014年后不再更新。
+```
 
 
 
@@ -1260,7 +1309,7 @@ public class HelloWorld {
 
 ### 2、遗留问题
 
-a（slf4j+logback）: Spring（commons-logging）、Hibernate（jboss-logging）、MyBatis、xxxx
+A系统（slf4j+logback）: Spring（commons-logging）、Hibernate（jboss-logging）、MyBatis、xxxx
 
 统一日志记录，即使是别的框架和我一起统一使用slf4j进行输出？
 
@@ -1268,11 +1317,16 @@ a（slf4j+logback）: Spring（commons-logging）、Hibernate（jboss-logging）
 
 **如何让系统中所有的日志都统一到slf4j；**
 
-==1、将系统中其他日志框架先排除出去；==
+==1、将系统中其他日志框架先排除出去（如在maven的pom文件中移除原先的依赖。）；==
 
-==2、用中间包来替换原有的日志框架；==
+==2、用中间包(可以理解为适配层jar)来替换原有的日志框架；==
 
 ==3、我们导入slf4j其他的实现==
+
+```
+folio的日志替换：
+http://app.jieshu.me/confluence/pages/viewpage.action?pageId=21801563
+```
 
 
 
@@ -1323,7 +1377,7 @@ public abstract class LogFactory {
 
 ​	4）、如果我们要引入其他框架？一定要把这个框架的默认日志依赖移除掉？
 
-​			Spring框架用的是commons-logging；
+​			如下代码就是排除了 Spring框架用的是commons-logging；
 
 ```xml
 		<dependency>
@@ -1414,7 +1468,7 @@ logging.pattern.file=%d{yyyy-MM-dd} === [%thread] === %-5level === %logger{50} =
 | Log4j2                  | `log4j2-spring.xml` or `log4j2.xml`      |
 | JDK (Java Util Logging) | `logging.properties`                     |
 
-logback.xml：直接就被日志框架识别了；
+logback.xml：直接就被日志框架识别了，相当于绕过了springBoot框架，而无法使用springboot下面的高级特性；
 
 **logback-spring.xml**：日志框架就不直接加载日志的配置项，由SpringBoot解析日志配置，可以使用SpringBoot的高级Profile功能
 
@@ -1461,6 +1515,8 @@ logback.xml：直接就被日志框架识别了；
 可以按照slf4j的日志适配图，进行相关的切换；
 
 slf4j+log4j的方式；
+
+[ck]：仅仅演示原理，不推荐log4j使用
 
 ```xml
 <dependency>
@@ -1550,7 +1606,7 @@ public class ResourceProperties implements ResourceLoaderAware {
 
 
 ```java
-	WebMvcAuotConfiguration：
+WebMvcAuotConfiguration：
 		@Override
 		public void addResourceHandlers(ResourceHandlerRegistry registry) {
 			if (!this.resourceProperties.isAddMappings()) {
@@ -1706,10 +1762,8 @@ public class ThymeleafProperties {
 	public static final String DEFAULT_PREFIX = "classpath:/templates/";
 
 	public static final String DEFAULT_SUFFIX = ".html";
-  	//
+  	//只要我们把HTML页面放在classpath:/templates/，thymeleaf就能自动渲染；
 ```
-
-只要我们把HTML页面放在classpath:/templates/，thymeleaf就能自动渲染；
 
 使用：
 
@@ -1841,7 +1895,7 @@ Spring Boot 自动配置好了SpringMVC
 
 - Custom `Favicon` support (see below).  favicon.ico
 
-  ​
+  
 
 - 自动注册了 of `Converter`, `GenericConverter`, `Formatter` beans.
 
@@ -1866,7 +1920,7 @@ Spring Boot 自动配置好了SpringMVC
 
     ==自己给容器中添加HttpMessageConverter，只需要将自己的组件注册容器中（@Bean,@Component）==
 
-    ​
+    
 
 - Automatic registration of `MessageCodesResolver` (see below).定义错误代码生成规则
 
@@ -2005,6 +2059,8 @@ public class WebMvcAutoConfiguration {
 4）、@EnableWebMvc将WebMvcConfigurationSupport组件导入进来；
 
 5）、导入的WebMvcConfigurationSupport只是SpringMVC最基本的功能；
+
+而额外功能，比如视图解析器，拦截器等都需要再来配置。
 
 
 
@@ -3414,6 +3470,12 @@ docker客户端(Client)：连接docker主机进行操作；
 
 docker仓库(Registry)：用来保存各种打包好的软件镜像；
 
+```java
+docker仓库又分为共有(Docker Hub)和私有(private registry)。
+```
+
+
+
 docker镜像(Images)：软件打包好的镜像；放在docker仓库中；
 
 docker容器(Container)：镜像启动后的实例称为一个容器；容器是独立运行的一个或一组应用
@@ -3878,6 +3940,8 @@ spring:
 
 
 # 七、启动配置原理
+
+[ck]：仅仅作为参考大纲，代码已经有了蛮大的变化，对应不上。
 
 几个重要的事件回调机制
 
